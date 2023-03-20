@@ -173,8 +173,12 @@ wire U7PN_QA,U7PN_QH,U7LM_QA,U7LM_QH,U3ML_QA,U3ML_QH,U7KJ_QA,U7KJ_QH;
 	always @(*) begin 
 		BG_PX_D[3:0] <= (SH_REG_DIR) ? {U7KJ_QH,U3ML_QH,U7LM_QH,U7PN_QH} : {U7KJ_QA,U3ML_QA,U7LM_QA,U7PN_QA} ;
 	end
-	
-	always @(posedge BG_COLOUR_COPY) BG_PX_D[7:4]<=BG_RAMD[15:12];//pause_cnt;//BG_RAMD[15:12];
+
+	// always @(posedge BG_COLOUR_COPY) BG_PX_D[7:4]<=BG_RAMD[15:12];//pause_cnt;//BG_RAMD[15:12];
+
+	always @(posedge master_clk) begin
+		if (BG_COLOUR_COPY) BG_PX_D[7:4] <= BG_RAMD[15:12];//pause_cnt;//BG_RAMD[15:12];
+	end
 
 	assign pixel_output=BG_PX_D;
 

@@ -72,8 +72,18 @@ ROM15 U8B_ROM15(
 wire U9E_cout;
 wire U8E_cout;
 
-always @(posedge V_SCRL_SEL) VSCRL_sum_in<=(pcb) ? ({Z80A_databus_out[7:4],!IO2_SF,!IO2_SF,!IO2_SF,!IO2_SF}) : Z80A_databus_out; //AY1_IOB_in[7:5]
-always @(posedge H_SYNC) LINE_CLK2<=ROM15_out[1];
+// always @(posedge V_SCRL_SEL) VSCRL_sum_in<=(pcb) ? ({Z80A_databus_out[7:4],!IO2_SF,!IO2_SF,!IO2_SF,!IO2_SF}) : Z80A_databus_out; //AY1_IOB_in[7:5]
+always @(posedge clkm_36MHZ) begin //AY1_IOB_in[7:5]
+	if (H_SYNC) LINE_CLK2<=ROM15_out[1];
+	if (V_SCRL_SEL) begin
+		if (pcb) begin
+			VSCRL_sum_in <= ({Z80A_databus_out[7:4],!IO2_SF,!IO2_SF,!IO2_SF,!IO2_SF});
+		end else begin
+			VSCRL_sum_in <= Z80A_databus_out;
+		end
+	end
+end
+// always @(posedge H_SYNC) LINE_CLK2<=ROM15_out[1];
 
 //(pcb) ? 0 : 
 
@@ -127,15 +137,29 @@ wire [3:0] U1J_sum,U2J_sum,U1H_sum;
 wire U1J_cout,U2J_cout,U1H_cout,CPU_RAM_SYNC,CPU_RAM_LBUF;
 reg IO2_SF;
 
-always @(posedge RESET_n) IO2_SF<=(pcb) ? DIP1[5] : DIP1[6];	
+// always @(posedge RESET_n) IO2_SF<=(pcb) ? DIP1[5] : DIP1[6];
 
-always @(posedge H_SCRL_LO_SEL) begin 
-	HSCRL[7:0]<=Z80A_databus_out;		//U3J
+always @(posedge clkm_36MHZ) begin
+	if (RESET_n) begin
+		if (pcb) begin
+			IO2_SF <= DIP1[5];
+		end else begin
+			IO2_SF <= DIP1[6];
+		end
+	end
 end
 
-always @(posedge H_SCRL_HI_SEL) HSCRL[8]<=Z80A_databus_out[0];		//U1G_A
-always @(posedge pixel_clk) HPIXSCRL[8:0]<={U1H_sum[0],U2J_sum,U1J_sum}; //U2H & U1C bit 0
+// always @(posedge H_SCRL_LO_SEL) begin 
+// 	HSCRL[7:0]<=Z80A_databus_out;		//U3J
+// end
+// always @(posedge H_SCRL_HI_SEL) HSCRL[8]<=Z80A_databus_out[0];		//U1G_A
 
+always @(posedge clkm_36MHZ) begin
+	if (H_SCRL_LO_SEL) HSCRL[7:0] <= Z80A_databus_out; //U3J
+	if (H_SCRL_HI_SEL) HSCRL[8]<=Z80A_databus_out[0];  //U1G_A
+end
+
+always @(posedge pixel_clk) HPIXSCRL[8:0]<={U1H_sum[0],U2J_sum,U1J_sum}; //U2H & U1C bit 0
 
 
 wire U7B_D,U7C_C,U4B_D;
@@ -143,7 +167,6 @@ assign U7B_D=!(U1C_Q[3]|!IO_4_CPU_RAM);
 assign CPU_RAM_SELECT=!(LINE_CLK2|!IO_4_CPU_RAM);
 assign CPU_RAM_SYNC=!(U7B_D&CPU_RAM_SELECT);
 assign CPU_RAM_LBUF=U1C_Q[3];
-
 
 
 wire [3:0] U1C_Q;

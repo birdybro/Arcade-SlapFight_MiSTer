@@ -137,7 +137,11 @@ assign HPIX_LT_out	= HPIX_LT;
 		FG_PX_D[1] <= (SCREEN_FLIP) ?   U7F_QA : U7F_QH;
 	end
 
-	always @(posedge colour_copy) FG_PX_D[7:2]<=FG_RAMD[15:10];
+	// always @(posedge colour_copy) FG_PX_D[7:2]<=FG_RAMD[15:10];
+
+	always @(posedge master_clk) begin
+		if (colour_copy) FG_PX_D[7:2] <= FG_RAMD[15:10];
+	end
 
 	assign pixel_output=FG_PX_D;
 

@@ -45,8 +45,18 @@ wire SPR_CPU_RAM_SELECT=!nCPU_RAM_SELECT;
 wire nCPU_RAM_SYNC=!CPU_RAM_SYNC;
 //*********START: chip selects **************
 //rom address should get set to zero when CPU_RAM_SYNC
-always @(posedge pixel_clk or negedge nCPU_RAM_SYNC) 	ROM18_addr <= (!nCPU_RAM_SYNC) ? 8'd0 :
-																		(!RESET_LD_CTR) ? 8'b00000100 : ROM18_addr+1; //S2_U4B & S2_U2C - is there a clear?
+// always @(posedge pixel_clk or negedge nCPU_RAM_SYNC) 	ROM18_addr <= (!nCPU_RAM_SYNC) ? 8'd0 :
+// 																		(!RESET_LD_CTR) ? 8'b00000100 : ROM18_addr+1; //S2_U4B & S2_U2C - is there a clear?
+
+always @(posedge pixel_clk) begin
+	if (!nCPU_RAM_SYNC) begin
+		ROM18_addr <= 8'd0;
+	end else if (!RESET_LD_CTR) begin
+		ROM18_addr <= 8'b00000100;
+	end else begin
+		ROM18_addr <= ROM18_addr + 1; //S2_U4B & S2_U2C - is there a clear?
+	end
+end
 
 wire [7:0] ROM18_out;
 ROM18 S2_U2B_ROM18(
@@ -92,7 +102,15 @@ reg [7:0] SPR_ROM1617_ADDR;
 
 wire SPR_ROM_ADDR_RST=RST_REG_CTR|SPR_CPU_RAM_SELECT; //S2_U4C_D
 
-always @(posedge npixel_clk or posedge SPR_ROM_ADDR_RST) SPR_ROM1617_ADDR <= (SPR_ROM_ADDR_RST) ? 8'd0 : SPR_ROM1617_ADDR+1; //clear on RST going high, may not be clocked - observe behaviour
+// always @(posedge npixel_clk or posedge SPR_ROM_ADDR_RST) SPR_ROM1617_ADDR <= (SPR_ROM_ADDR_RST) ? 8'd0 : SPR_ROM1617_ADDR+1; //clear on RST going high, may not be clocked - observe behaviour
+
+always @(posedge npixel_clk) begin
+	if (SPR_ROM_ADDR_RST) begin
+		SPR_ROM1617_ADDR <= 8'd0;
+	end else begin
+		SPR_ROM1617_ADDR <= SPR_ROM1617_ADDR + 1; //clear on RST going high, may not be clocked - observe behaviour
+	end
+end
 
 wire [7:0] ROM17_out;
 wire [7:0] ROM16_out;
@@ -116,7 +134,17 @@ always @(posedge pixel_clk) S2_U1F_out <= ({ROM16_out[1:0],ROM17_out[3:0]});
 wire SPR_INC_CNT=S2_U1F_out[3];
 wire RST_REG_CTR=S2_U1F_out[5];
 
-always @(posedge SPR_INC_CNT or posedge SPR_CPU_RAM_SELECT) SPR_CNT <= (SPR_CPU_RAM_SELECT) ? 12'd0 : SPR_CNT+12'd1;  //this code doesn't see the clear is it isn't clocking at the time
+// always @(posedge SPR_INC_CNT or posedge SPR_CPU_RAM_SELECT) SPR_CNT <= (SPR_CPU_RAM_SELECT) ? 12'd0 : SPR_CNT+12'd1;  //this code doesn't see the clear is it isn't clocking at the time
+
+always @(posedge master_clk) begin
+	if (SPR_INC_CNT) begin
+		if (SPR_CPU_RAM_SELECT) begin
+			SPR_CNT <= 12'd0;
+		end else begin
+			SPR_CNT <= SPR_CNT + 12'd1;
+		end
+	end
+end
 
 wire S2_U1G_7,S2_U1G_9,S2_U1G_10,SPR_LAT_INDX,SPR_LAT_VPOS,SPR_LAT_XDAT,SPR_LAT_HPOS,S2_U1G_O0;
 ls138x S2_U1G( //sf
@@ -156,13 +184,24 @@ reg [8:0] SPR_HPOS_D;
 
 wire [3:0] SPR_VPIX;
 
-always @(posedge SPR_LAT_VPOS) SPR_VPOS_D <= SPRITE_RAM_D;	//S2_U1H
-always @(posedge SPR_LAT_INDX) SPR_IDX_D[7:0] <= SPRITE_RAM_D;	//S2_U1J
-always @(posedge SPR_LAT_HPOS) SPR_HPOS_D[7:0] <= SPRITE_RAM_D;	//S2_U1L
-always @(posedge SPR_LAT_XDAT) begin //S2_U1K
-	SPR_HPOS_D[8]	<=SPRITE_RAM_D[0];
-	SPR_IDX_D[9:8]	<=SPRITE_RAM_D[7:6];
-	SPR_EXT_D      <=SPRITE_RAM_D;
+// always @(posedge SPR_LAT_VPOS) SPR_VPOS_D <= SPRITE_RAM_D;	//S2_U1H
+// always @(posedge SPR_LAT_INDX) SPR_IDX_D[7:0] <= SPRITE_RAM_D;	//S2_U1J
+// always @(posedge SPR_LAT_HPOS) SPR_HPOS_D[7:0] <= SPRITE_RAM_D;	//S2_U1L
+// always @(posedge SPR_LAT_XDAT) begin //S2_U1K
+// 	SPR_HPOS_D[8]	<=SPRITE_RAM_D[0];
+// 	SPR_IDX_D[9:8]	<=SPRITE_RAM_D[7:6];
+// 	SPR_EXT_D      <=SPRITE_RAM_D;
+// end
+
+always @(posedge master_clk) begin
+	if (SPR_LAT_VPOS) SPR_VPOS_D      <= SPRITE_RAM_D;	//S2_U1H
+	if (SPR_LAT_INDX) SPR_IDX_D[7:0]  <= SPRITE_RAM_D;	//S2_U1J
+	if (SPR_LAT_HPOS) SPR_HPOS_D[7:0] <= SPRITE_RAM_D;	//S2_U1L
+	if (SPR_LAT_XDAT) begin 				//S2_U1K
+		SPR_HPOS_D[8]	          <=SPRITE_RAM_D[0];
+		SPR_IDX_D[9:8]	          <=SPRITE_RAM_D[7:6];
+		SPR_EXT_D                 <=SPRITE_RAM_D;
+	end
 end
 //END: SPRITE REGISTERS
 
@@ -217,7 +256,17 @@ wire SPR32_CLK = 		S2_U4C_C&S2_U4C_A;
 wire SPR32_BUF_WR = 	S2_U4C_C&S2_U4A_6;
 
 reg [3:0] SPR_32K_HI;
-always @(posedge S2_U5A_A) SPR_32K_HI <= (!SPR32_BUF_WR) ? S2_U4F_sum : S2_U2F_out;
+// always @(posedge S2_U5A_A) SPR_32K_HI <= (!SPR32_BUF_WR) ? S2_U4F_sum : S2_U2F_out;
+
+always @(posedge master_clk) begin
+	if (S2_U5A_A) begin
+		if (!SPR32_BUF_WR) begin
+			SPR_32K_HI <= S2_U4F_sum;
+		end else begin
+			SPR_32K_HI <= S2_U2F_out;
+		end
+	end
+end
 
 assign SPR_32K_A[7:0] = (CPU_RAM_SYNC) ? SPR_VPOS_CNT : VPIX-1;
 assign SPR_32K_A[11:8] = SPR_32K_HI;
@@ -449,7 +498,11 @@ assign LINEBUF_A_A = (CPU_RAM_LBUF) ? 9'd0 :
 assign LINEBUF_B_A = (CPU_RAM_LBUF) ? 9'd0 :
 							  (!SPR_LINEB) ? HPIX_LT : LNBF_CNT; //S2_U2T, U4T
 							  
-always @(posedge SPR_ROM_LD) SP_PX_SEL_D <= SPR_EXTRA_out[4:1]; //S2_U5L
+// always @(posedge SPR_ROM_LD) SP_PX_SEL_D <= SPR_EXTRA_out[4:1]; //S2_U5L
+
+always @(posedge master_clk) begin
+	if (SPR_ROM_LD) SP_PX_SEL_D <= SPR_EXTRA_out[4:1]; //S2_U5L
+end
 
 assign LINEBUF_A_D_in={SPR_LINEA_PIX_D,SPR_LINEA_PIX_B,SPR_LINEA_PIX_C,SPR_LINEA_PIX_A,SP_PX_SEL_D}; //S2_U7P
 assign LINEBUF_B_D_in={SPR_LINEB_PIX_D,SPR_LINEB_PIX_B,SPR_LINEB_PIX_C,SPR_LINEB_PIX_A,SP_PX_SEL_D}; //S2_U8P
@@ -490,6 +543,8 @@ m6148x2 S2_U5M (
 reg [7:0] LINEA_PIXEL;
 reg [7:0] LINEB_PIXEL;
 
+// potential read during write bug here because the values written to here use a different clk than when they are read further below into SP_PX_D
+// would be better to use write enables as the note says, with an if statement.
 always @(posedge pixel_clk_lb) begin
 	LINEA_PIXEL <= ({LINEBUF_A_D_out[3:0],LINEBUF_A_D_out[7:4]});  //put in enables here based off of 'LINEBUF_A_nWE'
 	LINEB_PIXEL <= ({LINEBUF_B_D_out[3:0],LINEBUF_B_D_out[7:4]});
@@ -504,7 +559,9 @@ end
 wire clear_pixel=pixel_blank[7];
 
 //wire [7:0] pix_out2;
-always @(posedge pixel_clk) SP_PX_D = (!SPR_LINEA) ?  LINEA_PIXEL : LINEB_PIXEL;
+always @(posedge pixel_clk) SP_PX_D <= (!SPR_LINEA) ?  LINEA_PIXEL : LINEB_PIXEL; // changed to non-blocking assignment for test ~birdybro
+// typically in sequential blocks you should never use a blocking assignment unless you know exactly what you are doing
+
 //assign pix_out2=(!clear_pixel) ? 8'b00000000 : SP_PX_D;
 assign pixel_output=SP_PX_D;
 
